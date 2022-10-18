@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../lib/erc721a/contracts/extensions/ERC721ABurnable.sol";
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
-contract Cinema is ERC721ABurnable, Ownable {
+contract Cinema is Ownable {
     struct CinemaDetails {
         bytes32 name;
         uint8 studiosAmount;
@@ -32,8 +31,6 @@ contract Cinema is ERC721ABurnable, Ownable {
     mapping(uint256 => RegionDetails) public regionToDetails;
     mapping(uint256 => mapping(uint256 => uint32)) public regionToCinemas;
     mapping(uint256 => mapping(uint256 => uint8)) public cinemaToStudioCap;
-
-    constructor() ERC721A("Cinema 21", "C21") {}
 
     function mintTicket() external {}
 
