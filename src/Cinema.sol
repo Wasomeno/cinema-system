@@ -117,6 +117,14 @@ contract Cinema is Ownable {
         }
     }
 
+    function getStudioCapacity(uint256 _cinema, uint256 _studio)
+        external
+        view
+        returns (uint256 capacity)
+    {
+        capacity = cinemaToStudiosCapacities[_cinema][_studio];
+    }
+
     function addMoviesToCinema(uint256 _cinema, uint256 _amount) external {
         CinemaDetails storage details = cinemaToDetails[_cinema];
         uint256 amount = details.moviesAmount;
