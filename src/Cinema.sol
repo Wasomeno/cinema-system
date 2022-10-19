@@ -15,26 +15,29 @@ contract Cinema is Ownable {
         uint8 cinemasAmount;
     }
 
-    struct TicketDetails {
-        uint256 region;
-        uint32 cinema;
-        uint8 studio;
-        uint32 movie;
-        uint64 time;
-    }
-
     uint64 public constant TICKET_PRICE_WEEKDAYS = 0.001 ether;
     uint64 public constant TICKET_PRICE_WEEKEND = 0.0012 ether;
     uint8 internal constant REGION_AMOUNT = 32;
 
+    uint8 private showTimesAmount;
+    uint64 private unixTime;
+    bool private isOpen;
+
     mapping(uint256 => CinemaDetails) public cinemaToDetails;
     mapping(uint256 => RegionDetails) public regionToDetails;
     mapping(uint256 => mapping(uint256 => uint32)) public regionToCinemas;
-    mapping(uint256 => mapping(uint256 => uint8)) public cinemaToStudioCap;
+    mapping(uint256 => mapping(uint256 => uint8))
+        public cinemaToStudiosCapacities;
+    mapping(uint256 => mapping(uint256 => uint8[])) public cinemaToStudiosTime;
+    mapping(uint256 => uint256) public showTimes;
 
-    function mintTicket() external {}
-
-    function burnTicket() external {}
+    function openCinema() external onlyOwner {
+        isOpen = true;
+        uint256 dailyTimeChange = unixTime + 24 hours;
+        if (unixTime < block.timestamp) {
+            setUnixTime(dailyTimeChange);
+        }
+    }
 
     function getCinemasDetails(uint256 _region)
         external
@@ -67,28 +70,39 @@ contract Cinema is Ownable {
         details.name = _name;
     }
 
-    function addCinemas(
+    function addCinema(
         uint256 _region,
-        bytes32[] calldata _names,
-        uint256[] calldata _studiosAmounts,
-        uint256[] calldata _studiosCapacity
+        bytes32 _name,
+        uint256 _studioAmount,
+        uint256[] calldata _studioCapacity
     ) external {
         RegionDetails storage details = regionToDetails[_region];
         uint256 currentCinemasAmount = details.cinemasAmount;
-        details.cinemasAmount = uint8(currentCinemasAmount + _names.length);
-        for (uint256 i; i < _names.length; ++i) {
-            regionToCinemas[_region][currentCinemasAmount + i] = uint32(
-                currentCinemasAmount + 1
-            );
-            cinemaToDetails[currentCinemasAmount + i] = CinemaDetails(
-                _names[i],
-                uint8(_studiosAmounts[i]),
-                0
-            );
-            cinemaToStudioCap[currentCinemasAmount + i][i] = uint8(
-                _studiosCapacity[i]
+        for (uint256 i; i < _studioAmount; ++i) {
+            cinemaToStudiosCapacities[currentCinemasAmount + 1][i + 1] = uint8(
+                _studioCapacity[i]
             );
         }
+        details.cinemasAmount = uint8(currentCinemasAmount + 1);
+        regionToCinemas[_region][currentCinemasAmount + 1] = uint32(
+            currentCinemasAmount + 1
+        );
+        cinemaToDetails[currentCinemasAmount + 1] = CinemaDetails(
+            _name,
+            uint8(_studioAmount),
+            0
+        );
+    }
+
+    function adddShowTimes(uint256[] calldata _times) external {
+        uint256 currentAmount = showTimesAmount;
+        for (uint256 i; i < _times.length; ++i) {
+            showTimes[currentAmount + i] = _times[i];
+        }
+    }
+
+    function setUnixTime(uint256 _time) internal onlyOwner {
+        unixTime = uint64(_time);
     }
 
     function getRegionsDetails()
