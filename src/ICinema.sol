@@ -14,4 +14,9 @@ interface ICinema {
         returns (CinemaDetails memory details);
 
     function addMoviesToCinema(uint256 _cinema, uint256 _amount) external;
+
+    function getStudioCapacity(uint256 _cinema, uint256 _studio)
+        external
+        view
+        returns (uint256 capacity);
 }
