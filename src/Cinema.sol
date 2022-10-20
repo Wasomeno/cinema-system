@@ -10,7 +10,8 @@ contract Cinema is Ownable {
         uint8 moviesAmount;
         uint8 showTimesAmount;
         mapping(uint256 => uint64) showTimes;
-        mapping(uint256 => uint64) studiosShowTimes;
+        mapping(uint256 => uint8) studioShowTimesAmount;
+        mapping(uint256 => mapping(uint256 => uint64)) studiosShowTimes;
         mapping(uint256 => uint8) studiosCapacities;
     }
 
@@ -47,7 +48,7 @@ contract Cinema is Ownable {
             uint256 moviesAmount,
             uint256 showTimesAmount,
             uint256[] memory showTimes,
-            uint256[] memory studioShowTimes,
+            uint256[][] memory studioShowTimes,
             uint256[] memory studiosCapacities
         )
     {
@@ -57,7 +58,7 @@ contract Cinema is Ownable {
         moviesAmount = details.moviesAmount;
         showTimesAmount = details.showTimesAmount;
         showTimes = getCinemaShowTimes(_cinema);
-        studioShowTimes = getCinemaStudiosShowTimes(_cinema);
+        studioShowTimes = getStudiosShowTimes(_cinema);
         studiosCapacities = getCinemaStudioCapacities(_cinema);
     }
 
@@ -87,16 +88,30 @@ contract Cinema is Ownable {
         }
     }
 
-    function getCinemaStudiosShowTimes(uint256 _cinema)
+    function getStudioShowTimes(uint256 _cinema, uint256 _studio)
         public
         view
         returns (uint256[] memory showTimes)
     {
         CinemaDetails storage details = cinemaToDetails[_cinema];
+        uint256 showTimesAmount = details.studioShowTimesAmount[_studio];
+        showTimes = new uint256[](showTimesAmount);
+        for (uint256 i; i < showTimesAmount; ++i) {
+            showTimes[i] = details.studiosShowTimes[_studio][i];
+        }
+    }
+
+    function getStudiosShowTimes(uint256 _cinema)
+        public
+        view
+        returns (uint256[][] memory showTimes)
+    {
+        CinemaDetails storage details = cinemaToDetails[_cinema];
         uint256 studiosAmount = details.studiosAmount;
-        showTimes = new uint256[](studiosAmount);
+
+        showTimes = new uint256[][](studiosAmount);
         for (uint256 i; i < studiosAmount; ++i) {
-            showTimes[i] = details.studiosShowTimes[i];
+            showTimes[i] = getStudioShowTimes(_cinema, i);
         }
     }
 
@@ -141,9 +156,38 @@ contract Cinema is Ownable {
         uint256 currentShowTimesAmount = cinemaDetails.showTimesAmount;
         for (uint256 i; i < _times.length; ++i) {
             cinemaDetails.showTimes[currentShowTimesAmount] = uint64(_times[i]);
+            currentShowTimesAmount++;
         }
-        cinemaDetails.showTimesAmount = uint8(
-            currentShowTimesAmount + _times.length
+        cinemaDetails.showTimesAmount = uint8(currentShowTimesAmount);
+    }
+
+    function updateStudiosShowTimes(
+        uint256 _cinema,
+        uint256[] calldata _studios,
+        uint256[][] calldata _showTimes
+    ) external {
+        for (uint256 i; i < _studios.length; ++i) {
+            addStudioShowTimes(_cinema, _studios[i], _showTimes[i]);
+        }
+    }
+
+    function addStudioShowTimes(
+        uint256 _cinema,
+        uint256 _studio,
+        uint256[] calldata _showTimes
+    ) internal {
+        CinemaDetails storage cinemaDetails = cinemaToDetails[_cinema];
+        uint256 studioShowTimesAmount = cinemaDetails.studioShowTimesAmount[
+            _studio
+        ];
+        for (uint256 i; i < _showTimes.length; ++i) {
+            cinemaDetails.studiosShowTimes[_studio][
+                studioShowTimesAmount
+            ] = uint64(_showTimes[i]);
+            studioShowTimesAmount++;
+        }
+        cinemaDetails.studioShowTimesAmount[_studio] = uint8(
+            studioShowTimesAmount
         );
     }
 
