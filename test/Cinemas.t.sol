@@ -36,12 +36,10 @@ contract CinemasTest is Test {
 
     function testAddShowTimes() public {
         uint256[] memory times = new uint256[](4);
-
         times[0] = uint256(10 hours);
         times[1] = uint256(12 hours);
         times[2] = uint256(16 hours);
         times[3] = uint256(18 hours);
-
         cinemaContract.adddShowTimes(1, times);
         uint256[] memory timesAfter = cinemaContract.getCinemaShowTimes(1);
         console.log(timesAfter[0]);
@@ -63,6 +61,13 @@ contract CinemasTest is Test {
             1,
             0
         );
-        console.log(showTimesAfter[1]);
+        console.log(showTimesAfter[0]);
+    }
+
+    function testMintTicket() public {
+        uint256[] memory seats = new uint256[](2);
+        seats[0] = 15;
+        seats[1] = 16;
+        ticketContract.mintTicket(10, 1, 1, 1, 5, 1, seats);
     }
 }
