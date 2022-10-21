@@ -7,7 +7,6 @@ contract Movies {
     struct MovieDetails {
         bytes32 title;
         uint8 duration;
-        uint8 studio;
     }
 
     ICinema public cinemaInterface;
@@ -22,18 +21,19 @@ contract Movies {
 
     function addMovies(
         bytes32[] calldata _titles,
-        uint256[] calldata _durations,
-        uint256[] calldata _studios
+        uint256[] calldata _durations
     ) external {
-        uint256 _moviesTotal = moviesTotal;
         for (uint256 i; i < _titles.length; ++i) {
-            _moviesTotal = _moviesTotal + 1;
-            MovieDetails storage details = movieToDetails[_moviesTotal];
-            details.title = _titles[i];
-            details.duration = uint8(_durations[i]);
-            details.studio = uint8(_studios[i]);
+            addMovie(_titles[i], _durations[i]);
         }
-        moviesTotal = uint32(_moviesTotal);
+    }
+
+    function addMovie(bytes32 _title, uint256 _duration) internal {
+        uint256 newTotal = moviesTotal + 1;
+        MovieDetails storage details = movieToDetails[newTotal];
+        details.duration = uint8(_duration);
+        details.title = _title;
+        moviesTotal = uint32(newTotal);
     }
 
     function addMoviesToCinema(uint256 _cinema, uint256[] calldata _movies)
