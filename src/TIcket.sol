@@ -23,8 +23,20 @@ contract Ticket is ERC721ABurnable, Ownable {
     mapping(uint256 => uint256) public cinemaToTicketsSold;
     mapping(uint256 => mapping(uint256 => mapping(uint256 => mapping(uint256 => bool))))
         public seatStatus;
+    mapping(address => bool) public approvedAddresses;
 
     constructor() ERC721A("Cinema 21 Tickets", "C21") {}
+
+    modifier ticketCheck(
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _studio,
+        uint256 _showTime,
+        uint256[] calldata _seats
+    ) {
+        checkSeats(_cinema, _studio, _showTime, _seats);
+        _;
+    }
 
     function setInterfaces(address _cinemaContract) external onlyOwner {
         cinemaInterface = ICinema(_cinemaContract);
@@ -38,16 +50,16 @@ contract Ticket is ERC721ABurnable, Ownable {
         uint256 _day,
         uint256 _showTime,
         uint256[] calldata _seatNumbers
-    ) external payable {
+    )
+        external
+        payable
+        ticketCheck(_region, _cinema, _studio, _showTime, _seatNumbers)
+    {
         uint256 price = getPrice(_day);
-        bool isSeatsAvailable = checkSeats(
-            _cinema,
-            _studio,
-            _showTime,
-            _seatNumbers
+        require(
+            msg.value == price * _seatNumbers.length,
+            "Wrong eth value sent"
         );
-        require(isSeatsAvailable, "Seat taken");
-        require(msg.value == price, "Wrong eth value sent");
         uint256 ticketSold = cinemaToTicketsSold[_cinema];
         TicketDetails storage details = cinemaToTicketDetails[_cinema][
             ticketSold
@@ -57,6 +69,9 @@ contract Ticket is ERC721ABurnable, Ownable {
         details.studio = uint8(_studio);
         details.region = uint32(_region);
         details.time = uint64(_showTime);
+        for (uint256 i; i < _seatNumbers.length; ++i) {
+            seatStatus[_cinema][_studio][_showTime][_seatNumbers[i]] = true;
+        }
         _mint(msg.sender, _seatNumbers.length);
     }
 
@@ -73,22 +88,10 @@ contract Ticket is ERC721ABurnable, Ownable {
         uint256 _studio,
         uint256 _showTime,
         uint256[] calldata _seats
-    ) internal view returns (bool status) {
-        uint256 seatsIndex = 0;
-        uint256[] memory seatsAvailable = getAvailableSeats(
-            _cinema,
-            _studio,
-            _showTime
-        );
-        for (uint256 i; i < seatsAvailable.length; ++i) {
-            uint256 seatAvailable = seatsAvailable[i];
-            if (_seats[seatsIndex] == seatAvailable) {
-                status = true;
-                seatsIndex++;
-            } else {
-                status = false;
-                break;
-            }
+    ) internal view {
+        for (uint256 i; i < _seats.length; ++i) {
+            bool status = seatStatus[_cinema][_studio][_showTime][_seats[i]];
+            require(!status, "taken");
         }
     }
 
