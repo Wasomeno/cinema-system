@@ -31,12 +31,12 @@ contract Cinema is Ownable {
     mapping(uint256 => CinemaDetails) public cinemaToDetails;
     mapping(uint256 => RegionDetails) public regionToDetails;
 
-    function openCinema() external onlyOwner {
+    function resetTime() external onlyOwner {
         isOpen = true;
         uint256 dailyTimeChange = unixTime + 24 hours;
-        if (unixTime < block.timestamp) {
-            setUnixTime(dailyTimeChange);
-        }
+        unixTime < block.timestamp
+            ? setUnixTime(dailyTimeChange)
+            : setUnixTime(unixTime);
     }
 
     function getCinemaDetails(uint256 _cinema)
