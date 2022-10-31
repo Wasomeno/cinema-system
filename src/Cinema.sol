@@ -20,6 +20,7 @@ contract Cinema is Ownable {
         bytes32 name;
         uint8 cinemasAmount;
         mapping(uint256 => uint32) cinemas;
+        mapping(uint256 => CinemaDetails) cinemaToDetails;
     }
 
     IRoles public rolesInterface;
@@ -30,7 +31,6 @@ contract Cinema is Ownable {
     uint64 private unixTime;
     bool private isOpen;
 
-    mapping(uint256 => CinemaDetails) public cinemaToDetails;
     mapping(uint256 => RegionDetails) public regionToDetails;
 
     modifier isAdmin(uint256 _cinema) {
@@ -38,11 +38,11 @@ contract Cinema is Ownable {
         _;
     }
 
-    function setInterface(address _rolesContractAddress) external onlyOwner {
+    function setInterface(address _rolesContractAddress) external {
         rolesInterface = IRoles(_rolesContractAddress);
     }
 
-    function resetTime() external onlyOwner {
+    function resetTime() external {
         isOpen = true;
         uint256 dailyTimeChange = unixTime + 24 hours;
         unixTime < block.timestamp
@@ -50,7 +50,7 @@ contract Cinema is Ownable {
             : setUnixTime(unixTime);
     }
 
-    function getCinemaDetails(uint256 _cinema)
+    function getCinemaDetails(uint256 _region, uint256 _cinema)
         external
         view
         returns (
@@ -63,76 +63,87 @@ contract Cinema is Ownable {
             uint256[] memory studiosCapacities
         )
     {
-        CinemaDetails storage details = cinemaToDetails[_cinema];
-        name = details.name;
-        studiosAmount = details.studiosAmount;
-        moviesAmount = details.moviesAmount;
-        showTimesAmount = details.showTimesAmount;
-        showTimes = getCinemaShowTimes(_cinema);
-        studioShowTimes = getStudiosShowTimes(_cinema);
-        studiosCapacities = getCinemaStudioCapacities(_cinema);
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
+            _cinema
+        ];
+        name = cinemaDetails.name;
+        studiosAmount = cinemaDetails.studiosAmount;
+        moviesAmount = cinemaDetails.moviesAmount;
+        showTimesAmount = cinemaDetails.showTimesAmount;
+        showTimes = getCinemaShowTimes(_region, _cinema);
+        studioShowTimes = getStudiosShowTimes(_region, _cinema);
+        studiosCapacities = getCinemaStudioCapacities(_region, _cinema);
     }
 
-    function getCinemaShowTimes(uint256 _cinema)
+    function getCinemaShowTimes(uint256 _region, uint256 _cinema)
         public
         view
         returns (uint256[] memory showTimes)
     {
-        CinemaDetails storage details = cinemaToDetails[_cinema];
-        uint256 showTimesAmount = details.showTimesAmount;
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
+            _cinema
+        ];
+        uint256 showTimesAmount = cinemaDetails.showTimesAmount;
         showTimes = new uint256[](showTimesAmount);
         for (uint256 i; i < showTimesAmount; ++i) {
-            showTimes[i] = details.showTimes[i];
+            showTimes[i] = cinemaDetails.showTimes[i + 1];
         }
     }
 
-    function getCinemaStudioCapacities(uint256 _cinema)
+    function getCinemaStudioCapacities(uint256 _region, uint256 _cinema)
         public
         view
         returns (uint256[] memory capacities)
     {
-        CinemaDetails storage details = cinemaToDetails[_cinema];
-        uint256 studiosAmount = details.studiosAmount;
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
+            _cinema
+        ];
+        uint256 studiosAmount = cinemaDetails.studiosAmount;
         capacities = new uint256[](studiosAmount);
         for (uint256 i; i < studiosAmount; ++i) {
-            capacities[i] = details.studiosCapacities[i];
+            capacities[i] = cinemaDetails.studiosCapacities[i + 1];
         }
     }
 
-    function getStudioShowTimes(uint256 _cinema, uint256 _studio)
-        public
-        view
-        returns (uint256[] memory showTimes)
-    {
-        CinemaDetails storage details = cinemaToDetails[_cinema];
-        uint256 showTimesAmount = details.studioShowTimesAmount[_studio];
+    function getStudioShowTimes(
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _studio
+    ) public view returns (uint256[] memory showTimes) {
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
+            _cinema
+        ];
+        uint256 showTimesAmount = cinemaDetails.studioShowTimesAmount[_studio];
         showTimes = new uint256[](showTimesAmount);
         for (uint256 i; i < showTimesAmount; ++i) {
-            showTimes[i] = details.studiosShowTimes[_studio][i];
+            showTimes[i] = cinemaDetails.studiosShowTimes[_studio][i + 1];
         }
     }
 
-    function getStudiosShowTimes(uint256 _cinema)
+    function getStudiosShowTimes(uint256 _region, uint256 _cinema)
         public
         view
         returns (uint256[][] memory showTimes)
     {
-        CinemaDetails storage details = cinemaToDetails[_cinema];
-        uint256 studiosAmount = details.studiosAmount;
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
+            _cinema
+        ];
+        uint256 studiosAmount = cinemaDetails.studiosAmount;
 
         showTimes = new uint256[][](studiosAmount);
         for (uint256 i; i < studiosAmount; ++i) {
-            showTimes[i] = getStudioShowTimes(_cinema, i);
+            showTimes[i] = getStudioShowTimes(_region, _cinema, i);
         }
     }
 
-    function addRegionDetails(
-        uint256 _region,
-        bytes32 _name,
-        uint256 _cinemasAmount
-    ) external onlyOwner {
+    function addRegionDetails(uint256 _region, bytes32 _name) external {
         RegionDetails storage details = regionToDetails[_region];
-        details.cinemasAmount = uint8(_cinemasAmount);
+        details.cinemasAmount = 0;
         details.name = _name;
     }
 
@@ -141,69 +152,66 @@ contract Cinema is Ownable {
         bytes32 _name,
         uint256 _studiosAmount,
         uint256[] calldata _studioCapacity
-    ) external onlyOwner {
+    ) external {
         RegionDetails storage regionDetails = regionToDetails[_region];
         uint256 currentCinemasAmount = regionDetails.cinemasAmount;
-        CinemaDetails storage cinemaDetails = cinemaToDetails[
+        CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
             currentCinemasAmount + 1
         ];
-        for (uint256 i; i < _studiosAmount; ++i) {
-            cinemaDetails.studiosCapacities[i] = uint8(_studioCapacity[i]);
-        }
         regionDetails.cinemasAmount = uint8(currentCinemasAmount + 1);
         regionDetails.cinemas[currentCinemasAmount + 1] = uint32(
             currentCinemasAmount + 1
         );
+
+        for (uint256 i; i < _studiosAmount; ++i) {
+            cinemaDetails.studiosCapacities[i + 1] = uint8(_studioCapacity[i]);
+        }
         cinemaDetails.moviesAmount = 0;
         cinemaDetails.name = _name;
         cinemaDetails.studiosAmount = uint8(_studiosAmount);
         cinemaDetails.showTimesAmount = 0;
     }
 
-    function adddShowTimes(uint256 _cinema, uint256[] calldata _times)
-        external
-        isAdmin(_cinema)
-    {
-        CinemaDetails storage cinemaDetails = cinemaToDetails[_cinema];
-        uint256 currentShowTimesAmount = cinemaDetails.showTimesAmount;
-        for (uint256 i; i < _times.length; ++i) {
-            cinemaDetails.showTimes[currentShowTimesAmount] = uint64(_times[i]);
-            currentShowTimesAmount++;
-        }
-        cinemaDetails.showTimesAmount = uint8(currentShowTimesAmount);
-    }
-
-    function updateStudiosShowTimes(
+    function addShowTime(
+        uint256 _region,
         uint256 _cinema,
-        uint256[] calldata _studios,
-        uint256[][] calldata _showTimes
+        uint256 _time
     ) external isAdmin(_cinema) {
-        for (uint256 i; i < _studios.length; ++i) {
-            addStudioShowTimes(_cinema, _studios[i], _showTimes[i]);
-        }
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
+            _cinema
+        ];
+        uint256 currentShowTimesAmount = cinemaDetails.showTimesAmount;
+        cinemaDetails.showTimes[currentShowTimesAmount + 1] = uint64(_time);
+        cinemaDetails.showTimesAmount = uint8(currentShowTimesAmount + 1);
     }
 
     function addStudioShowTimes(
+        uint256 _region,
         uint256 _cinema,
         uint256 _studio,
         uint256[] calldata _showTimes
-    ) internal {
-        CinemaDetails storage cinemaDetails = cinemaToDetails[_cinema];
+    ) external {
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
+            _cinema
+        ];
         uint256 studioShowTimesAmount = cinemaDetails.studioShowTimesAmount[
             _studio
         ];
+        uint256 index = studioShowTimesAmount + 1;
         for (uint256 i; i < _showTimes.length; ++i) {
-            cinemaDetails.studiosShowTimes[_studio][
-                studioShowTimesAmount
-            ] = uint64(_showTimes[i]);
-            studioShowTimesAmount++;
+            cinemaDetails.studiosShowTimes[_studio][index] = uint64(
+                _showTimes[i]
+            );
+            index++;
         }
         cinemaDetails.studioShowTimesAmount[_studio] = uint8(
-            studioShowTimesAmount
+            studioShowTimesAmount + _showTimes.length
         );
     }
 
-    function setUnixTime(uint256 _time) internal onlyOwner {
+    function setUnixTime(uint256 _time) internal {
         unixTime = uint64(_time);
     }
 
@@ -215,22 +223,29 @@ contract Cinema is Ownable {
         details = regionToDetails[_region];
     }
 
-    function getStudioCapacity(uint256 _cinema, uint256 _studio)
-        external
-        view
-        returns (uint256 capacity)
-    {
-        CinemaDetails storage cinemaDetails = cinemaToDetails[_cinema];
+    function getStudioCapacity(
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _studio
+    ) external view returns (uint256 capacity) {
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
+            _cinema
+        ];
         capacity = cinemaDetails.studiosCapacities[_studio];
     }
 
-    function addMoviesToCinema(uint256 _cinema, uint256 _amount)
-        external
-        isAdmin(_cinema)
-    {
-        CinemaDetails storage details = cinemaToDetails[_cinema];
-        uint256 amount = details.moviesAmount;
-        details.moviesAmount = uint8(amount + _amount);
+    function addMoviesToCinema(
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _amount
+    ) external {
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
+            _cinema
+        ];
+        uint256 amount = cinemaDetails.moviesAmount;
+        cinemaDetails.moviesAmount = uint8(amount + _amount);
     }
 
     function checkCinemaInRegion(uint256 _region, uint256 _cinema)
