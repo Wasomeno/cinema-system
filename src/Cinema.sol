@@ -210,6 +210,8 @@ contract Cinema is Ownable {
             _studio
         ];
         for (uint256 i; i < _showTimes.length; ++i) {
+            uint256 movie = studioDetails.showTimeToMovie[_showTimes[i]];
+            require(movie == 0, "Movie already exist in this showtime");
             studioDetails.showTimeToMovie[_showTimes[i]] = uint64(_movies[i]);
         }
     }
@@ -219,14 +221,21 @@ contract Cinema is Ownable {
         uint256 _region,
         uint256 _cinema,
         uint256 _studio,
-        uint256 _showTime
-    ) external {
-        // 1. check if movies exists
-        // 2. check if studio exist
-        // 3. check if studio time exist
-        // 4. check if cinema exist
-        // 5. check if region exist
-        // 6. update movies in the studio, paired it with the show time
+        uint256[] calldata _showTimes
+    )
+        external
+        isMoviesExists(_movies)
+        checkCinemaDetails(_region, _cinema, _studio, _showTimes)
+    {
+        CinemaDetails storage cinemaDetails = regionToDetails[_region]
+            .cinemaToDetails[_cinema];
+        StudioDetails storage studioDetails = cinemaDetails.studioToDetails[
+            _studio
+        ];
+        for (uint256 i; i < _showTimes.length; ++i) {
+            uint256 movie = studioDetails.showTimeToMovie[_showTimes[i]];
+            studioDetails.showTimeToMovie[_showTimes[i]] = uint64(_movies[i]);
+        }
     }
 
     function addRegion(uint256 _region, bytes32 _name) external {
