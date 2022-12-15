@@ -5,9 +5,16 @@ import "./ICinema.sol";
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract Roles is Ownable {
-    struct UserHistory {
-        uint32 ticket;
-        uint64 timeStamp;
+    struct CinemaAdminsDetails {
+        uint32 cinemaAdminsAmount;
+        mapping(uint256 => address) cinemaAdmins;
+        mapping(address => bool) cinemaAdminStatus;
+        mapping(address => AdminDetails) adminDetails;
+    }
+
+    struct UserDetails {
+        mapping(uint256 => mapping(uint256 => uint256)) transactionAmount;
+        mapping(uint256 => mapping(uint256 => mapping(uint256 => bytes32))) transactionDetails;
     }
 
     struct AdminDetails {
@@ -16,12 +23,40 @@ contract Roles is Ownable {
     }
 
     ICinema public cinemaInterface;
+    uint32 public superAdminsAmount;
 
-    mapping(address => uint256) public userHistoryAmount;
-    mapping(address => mapping(uint256 => UserHistory)) public userToHistory;
-    mapping(uint256 => mapping(address => bool)) public cinemaAdmins;
-    mapping(uint256 => uint256) public cinemaAdminsAmount;
-    mapping(address => AdminDetails) public adminToDetails;
+    mapping(uint256 => mapping(uint256 => CinemaAdminsDetails))
+        public cinemaAdminsDetails;
+    mapping(address => UserDetails) internal userToDetails;
+    mapping(address => bool) public superAdminStatus;
+    mapping(uint256 => address) public superAdmins;
+
+    constructor() {
+        address[] memory newSuperAdmins = new address[](1);
+        newSuperAdmins[0] = msg.sender;
+        addSuperAdmins(newSuperAdmins);
+    }
+
+    modifier isAdminExists(
+        address[] calldata _newAdmins,
+        uint256 _region,
+        uint256 _cinema
+    ) {
+        CinemaAdminsDetails storage details = cinemaAdminsDetails[_region][
+            _cinema
+        ];
+        for (uint256 i; i < _newAdmins.length; ++i) {
+            bool status = details.cinemaAdminStatus[_newAdmins[i]];
+            require(!status, "Address already an admin");
+        }
+        _;
+    }
+
+    modifier onlySuperAdmin() {
+        bool status = superAdminStatus[msg.sender];
+        require(status, "You're not a super admin");
+        _;
+    }
 
     modifier isCinemaExist(uint256 _cinema, uint256 _region) {
         bool result = cinemaInterface.checkCinemaInRegion(_region, _cinema);
@@ -33,37 +68,66 @@ contract Roles is Ownable {
         cinemaInterface = ICinema(_cinemaContractAddress);
     }
 
-    function addUserHistory(address _user, uint256 _ticket) external {
-        uint256 currentAmount = userHistoryAmount[_user];
-        UserHistory storage userHistory = userToHistory[_user][
-            currentAmount + 1
-        ];
-        userHistory.ticket = uint32(_ticket);
-        userHistory.timeStamp = uint64(block.timestamp);
+    function updateUserTransactions(
+        uint256 _region,
+        uint256 _cinema,
+        bytes32 _ticket
+    ) external {
+        UserDetails storage details = userToDetails[msg.sender];
+        uint256 transactionAmount = details.transactionAmount[_region][_cinema];
+        uint256 newTransactionAmount = transactionAmount + 1;
+        details.transactionDetails[_region][_cinema][
+            newTransactionAmount
+        ] = _ticket;
+        details.transactionAmount[_region][_cinema] = newTransactionAmount;
     }
 
-    function addAdminsToCinema(
+    function addSuperAdmins(address[] memory _newAdmins) public onlyOwner {
+        for (uint256 i; i < _newAdmins.length; ++i) {
+            address newAdmin = _newAdmins[i];
+            bool isAlreadyExisted = superAdminStatus[newAdmin];
+            require(!isAlreadyExisted, "Address already existed");
+            superAdminStatus[newAdmin] = true;
+        }
+    }
+
+    function addCinemaAdmins(
         uint256 _region,
         uint256 _cinema,
         address[] calldata _newAdmins
-    ) external onlyOwner isCinemaExist(_cinema, _region) {
-        uint256 currentAmount = cinemaAdminsAmount[_cinema];
+    )
+        external
+        onlySuperAdmin
+        isAdminExists(_newAdmins, _region, _cinema)
+        isCinemaExist(_cinema, _region)
+    {
+        CinemaAdminsDetails storage details = cinemaAdminsDetails[_region][
+            _cinema
+        ];
+        uint256 cinemaAdminsAmount = details.cinemaAdminsAmount;
         for (uint256 i; i < _newAdmins.length; ++i) {
-            address newAdmin = _newAdmins[i];
-            cinemaAdmins[_cinema][newAdmin] = true;
-            adminToDetails[newAdmin] = AdminDetails(
-                uint8(_region),
-                uint32(_cinema)
-            );
+            cinemaAdminsAmount++;
+            AdminDetails storage adminDetails = details.adminDetails[
+                _newAdmins[i]
+            ];
+            details.cinemaAdmins[cinemaAdminsAmount] = _newAdmins[i];
+            details.cinemaAdminStatus[_newAdmins[i]] = true;
+            adminDetails.cinema = uint32(_cinema);
+            adminDetails.region = uint8(_region);
         }
-        cinemaAdminsAmount[_cinema] = currentAmount + _newAdmins.length;
+        details.cinemaAdminsAmount = uint32(
+            cinemaAdminsAmount + _newAdmins.length
+        );
     }
 
-    function checkAdmin(uint256 _cinema, address _admin)
-        external
-        view
-        returns (bool result)
-    {
-        result = cinemaAdmins[_cinema][_admin];
+    function checkAdmin(
+        uint256 _region,
+        uint256 _cinema,
+        address _admin
+    ) external view returns (bool result) {
+        CinemaAdminsDetails storage details = cinemaAdminsDetails[_region][
+            _cinema
+        ];
+        result = details.cinemaAdminStatus[_admin];
     }
 }
