@@ -45,16 +45,4 @@ contract Movies {
     function isMovieExist(uint256 _movie) public view returns (bool result) {
         result = ExsistsMovies[_movie];
     }
-
-    function isMoviesExists(uint256[] calldata _movies)
-        public
-        view
-        returns (bool[] memory results)
-    {
-        results = new bool[](_movies.length);
-        for (uint256 i; i < _movies.length; ++i) {
-            uint256 movie = _movies[i];
-            results[i] = isMovieExist(movie);
-        }
-    }
 }
