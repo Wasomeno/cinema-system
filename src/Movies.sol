@@ -1,51 +1,29 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 import "../lib/forge-std/src/console.sol";
-import "./ICinema.sol";
+import "./IMovies.sol";
 
 contract Movies {
     struct MovieDetails {
         bytes32 title;
-        uint8 duration;
+        uint64 duration;
     }
-
-    ICinema public cinemaInterface;
-
-    uint32 moviesTotal;
-    mapping(uint256 => mapping(uint256 => uint32)) public cinemaToMovies;
+    uint32 public moviesTotal;
     mapping(uint256 => MovieDetails) public movieToDetails;
-
-    function setInterfaces(address _cinemaContractAddress) public {
-        cinemaInterface = ICinema(_cinemaContractAddress);
-    }
+    mapping(uint256 => bool) public ExsistsMovies;
 
     function addMovies(
         bytes32[] calldata _titles,
         uint256[] calldata _durations
     ) external {
+        uint256 total = moviesTotal;
         for (uint256 i; i < _titles.length; ++i) {
-            addMovie(_titles[i], _durations[i]);
+            total += 1;
+            MovieDetails storage details = movieToDetails[total];
+            details.duration = uint64(_durations[i]);
+            details.title = _titles[i];
         }
-    }
-
-    function addMovie(bytes32 _title, uint256 _duration) internal {
-        uint256 newTotal = moviesTotal + 1;
-        MovieDetails storage details = movieToDetails[newTotal];
-        details.duration = uint8(_duration);
-        details.title = _title;
-        moviesTotal = uint32(newTotal);
-    }
-
-    function addMoviesToCinema(uint256 _cinema, uint256[] calldata _movies)
-        external
-    {
-        uint32[] memory currentMovies = getMoviesInCinema(_cinema);
-        for (uint256 i; i < _movies.length; ++i) {
-            cinemaToMovies[_cinema][currentMovies.length + i] = uint32(
-                _movies[i]
-            );
-        }
-        cinemaInterface.addMoviesToCinema(_cinema, _movies.length);
+        moviesTotal = uint32(total);
     }
 
     function getMovieDetails(uint256 _movieId)
@@ -56,17 +34,27 @@ contract Movies {
         details = movieToDetails[_movieId];
     }
 
-    function getMoviesInCinema(uint256 _cinema)
+    function getMovies() external view returns (bytes32[] memory movies) {
+        uint256 currentAmount = moviesTotal;
+        movies = new bytes32[](currentAmount);
+        for (uint256 i; i < currentAmount; ++i) {
+            movies[i] = movieToDetails[i + 1].title;
+        }
+    }
+
+    function isMovieExist(uint256 _movie) public view returns (bool result) {
+        result = ExsistsMovies[_movie];
+    }
+
+    function isMoviesExists(uint256[] calldata _movies)
         public
         view
-        returns (uint32[] memory movies)
+        returns (bool[] memory results)
     {
-        uint256 moviesAmount = cinemaInterface
-            .getCinemaDetails(_cinema)
-            .moviesAmount;
-        movies = new uint32[](moviesAmount);
-        for (uint256 i; i < moviesAmount; ++i) {
-            movies[i] = cinemaToMovies[_cinema][i];
+        results = new bool[](_movies.length);
+        for (uint256 i; i < _movies.length; ++i) {
+            uint256 movie = _movies[i];
+            results[i] = isMovieExist(movie);
         }
     }
 }
