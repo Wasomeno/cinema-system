@@ -12,15 +12,17 @@ contract Ticket is ERC721ABurnable, Ownable {
         uint8 studio;
         uint32 movie;
         uint64 time;
+        uint256 day;
+        uint8 seatNumber;
     }
 
     ICinema public cinemaInterface;
     uint64 public constant TICKET_PRICE_WEEKDAYS = 0.001 ether;
     uint64 public constant TICKET_PRICE_WEEKEND = 0.0012 ether;
 
-    mapping(uint256 => mapping(uint256 => TicketDetails))
+    mapping(uint256 => mapping(uint256 => mapping(bytes32 => TicketDetails)))
         public cinemaToTicketDetails;
-    mapping(uint256 => uint256) public cinemaToTicketsSold;
+    mapping(uint256 => mapping(uint256 => uint256)) public cinemaToTicketsSold;
     mapping(uint256 => mapping(uint256 => mapping(uint256 => mapping(uint256 => bool))))
         public seatStatus;
     mapping(address => bool) public approvedAddresses;
@@ -42,37 +44,65 @@ contract Ticket is ERC721ABurnable, Ownable {
         cinemaInterface = ICinema(_cinemaContract);
     }
 
-    function mintTicket(
+    function convertToTicketDetails(
         uint256 _region,
         uint256 _cinema,
         uint256 _studio,
         uint256 _movie,
-        uint256 _day,
         uint256 _showTime,
+        uint256 _day
+    ) external pure returns (TicketDetails memory details) {
+        details = TicketDetails(
+            uint32(_region),
+            uint8(_cinema),
+            uint8(_studio),
+            uint32(_movie),
+            uint64(_showTime),
+            uint8(_day),
+            0
+        );
+    }
+
+    function mintTickets(
+        TicketDetails calldata _details,
         uint256[] calldata _seatNumbers
     )
         external
         payable
-        ticketCheck(_region, _cinema, _studio, _showTime, _seatNumbers)
+        ticketCheck(
+            _details.region,
+            _details.cinema,
+            _details.studio,
+            _details.time,
+            _seatNumbers
+        )
     {
-        uint256 price = getPrice(_day);
-        require(
-            msg.value == price * _seatNumbers.length,
-            "Wrong eth value sent"
-        );
-        uint256 ticketSold = cinemaToTicketsSold[_cinema];
-        TicketDetails storage details = cinemaToTicketDetails[_cinema][
-            ticketSold
-        ];
-        details.cinema = uint8(_cinema);
-        details.movie = uint32(_movie);
-        details.studio = uint8(_studio);
-        details.region = uint32(_region);
-        details.time = uint64(_showTime);
+        uint256 price = getPrice(_details.day);
+        // require(
+        //     msg.value == price * _seatNumbers.length,
+        //     "Wrong eth value sent"
+        // );
         for (uint256 i; i < _seatNumbers.length; ++i) {
-            seatStatus[_cinema][_studio][_showTime][_seatNumbers[i]] = true;
+            mintTicket(_details, _seatNumbers[i]);
         }
-        _mint(msg.sender, _seatNumbers.length);
+    }
+
+    function mintTicket(TicketDetails calldata _details, uint256 _seatNumber)
+        internal
+    {
+        bytes32 ticketId = keccak256(abi.encode(_nextTokenId()));
+        TicketDetails storage details = cinemaToTicketDetails[_details.region][
+            _details.cinema
+        ][ticketId];
+        details.cinema = uint8(_details.cinema);
+        details.movie = uint32(_details.movie);
+        details.studio = uint8(_details.studio);
+        details.region = uint32(_details.region);
+        details.time = uint64(_details.time);
+        seatStatus[_details.cinema][_details.studio][_details.time][
+            _seatNumber
+        ] = true;
+        _mint(msg.sender, 1);
     }
 
     function getPrice(uint256 _day) public pure returns (uint256 price) {
@@ -96,12 +126,14 @@ contract Ticket is ERC721ABurnable, Ownable {
     }
 
     function getAvailableSeats(
+        uint256 _region,
         uint256 _cinema,
         uint256 _studio,
         uint256 _showTime
     ) public view returns (uint256[] memory seats) {
         uint256 seatsIndex = 0;
         uint256 seatsAmount = cinemaInterface.getStudioCapacity(
+            _region,
             _cinema,
             _studio
         );
