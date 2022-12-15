@@ -3,6 +3,7 @@ pragma solidity ^0.8.16;
 
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "./IRoles.sol";
+import "./IMovies.sol";
 
 contract Cinema is Ownable {
     struct CinemaDetails {
@@ -14,6 +15,7 @@ contract Cinema is Ownable {
         mapping(uint256 => uint8) studioShowTimesAmount;
         mapping(uint256 => mapping(uint256 => uint64)) studiosShowTimes;
         mapping(uint256 => uint8) studiosCapacities;
+        mapping(uint256 => mapping(uint256 => uint64)) studiosMovies;
     }
 
     struct RegionDetails {
@@ -23,23 +25,30 @@ contract Cinema is Ownable {
         mapping(uint256 => CinemaDetails) cinemaToDetails;
     }
 
-    IRoles public rolesInterface;
+    IRoles internal rolesInterface;
+    IMovies internal movieInterface;
+
     uint64 public constant TICKET_PRICE_WEEKDAYS = 0.001 ether;
     uint64 public constant TICKET_PRICE_WEEKEND = 0.0012 ether;
-    uint8 internal constant REGION_AMOUNT = 32;
 
     uint64 private unixTime;
     bool private isOpen;
+    uint8 public regionsAmount;
 
     mapping(uint256 => RegionDetails) public regionToDetails;
+    mapping(uint256 => uint256) public availableRegions;
 
-    modifier isAdmin(uint256 _cinema) {
-        rolesInterface.checkAdmin(_cinema, msg.sender);
+    modifier isAdmin(uint256 _region, uint256 _cinema) {
+        rolesInterface.checkAdmin(_region, _cinema, msg.sender);
         _;
     }
 
-    function setInterface(address _rolesContractAddress) external {
+    function setInterface(
+        address _rolesContractAddress,
+        address _movieContractAddress
+    ) external {
         rolesInterface = IRoles(_rolesContractAddress);
+        movieInterface = IMovies(_movieContractAddress);
     }
 
     function resetTime() external {
@@ -141,10 +150,43 @@ contract Cinema is Ownable {
         }
     }
 
-    function addRegionDetails(uint256 _region, bytes32 _name) external {
+    function addMoviesToStudio(
+        uint256[] calldata _movies,
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _studio,
+        uint256 _showTime
+    ) external {
+        // 1. check if movies exists
+        // 2. check if studio exist
+        // 3. check if studio time exist
+        // 4. check if cinema exist
+        // 5. check if region exist
+        // 6. add movies to studio, paired it with the show time
+    }
+
+    function updateMoviesToStudio(
+        uint256[] calldata _movies,
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _studio,
+        uint256 _showTime
+    ) external {
+        // 1. check if movies exists
+        // 2. check if studio exist
+        // 3. check if studio time exist
+        // 4. check if cinema exist
+        // 5. check if region exist
+        // 6. update movies in the studio, paired it with the show time
+    }
+
+    function addRegion(uint256 _region, bytes32 _name) external {
+        uint256 currentRegionAmount = regionsAmount;
+        availableRegions[currentRegionAmount + 1] = _region;
         RegionDetails storage details = regionToDetails[_region];
         details.cinemasAmount = 0;
         details.name = _name;
+        regionsAmount = uint8(currentRegionAmount + 1);
     }
 
     function addCinema(
@@ -176,7 +218,7 @@ contract Cinema is Ownable {
         uint256 _region,
         uint256 _cinema,
         uint256 _time
-    ) external isAdmin(_cinema) {
+    ) external {
         RegionDetails storage regionDetails = regionToDetails[_region];
         CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
             _cinema
@@ -213,6 +255,14 @@ contract Cinema is Ownable {
 
     function setUnixTime(uint256 _time) internal {
         unixTime = uint64(_time);
+    }
+
+    function getRegions() external view returns (uint256[] memory regions) {
+        uint256 amount = regionsAmount;
+        regions = new uint256[](amount);
+        for (uint256 i; i < amount; ++i) {
+            regions[i] = availableRegions[i + 1];
+        }
     }
 
     function getRegionsDetails(uint256 _region)
@@ -261,5 +311,18 @@ contract Cinema is Ownable {
                 result = true;
             }
         }
+    }
+
+    function getCinemaMoviesAmount(uint256 _region, uint256 _cinema)
+        external
+        view
+        returns (uint256 amount)
+    {
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
+            _cinema
+        ];
+
+        amount = cinemaDetails.moviesAmount;
     }
 }
