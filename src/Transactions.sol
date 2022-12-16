@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.13;
 
 contract Transactions {
     struct TransactionDetails {
@@ -53,5 +53,32 @@ contract Transactions {
         transactionDetails.ticketIds = _ticketIds;
         transactionDetails.priceTotal = uint64(_priceTotal);
         transactionDetails.timeStamp = uint64(block.timestamp);
+    }
+
+    function getUserTransactionsDetails()
+        external
+        view
+        returns (TransactionDetails[] memory transactionsDetails)
+    {
+        uint256 transactionAmount = userToTransactionAmount[msg.sender];
+        transactionsDetails = new TransactionDetails[](transactionAmount);
+        for (uint256 i; i < transactionAmount; ++i) {
+            bytes32 transactionId = userToTransactionId[msg.sender][i + 1];
+            transactionsDetails[i] = transactionIdToDetails[transactionId];
+        }
+        return transactionsDetails;
+    }
+
+    function getuserTransactions()
+        external
+        view
+        returns (bytes32[] memory transactions)
+    {
+        uint256 transactionAmount = userToTransactionAmount[msg.sender];
+        transactions = new bytes32[](transactionAmount);
+        for (uint256 i; i < transactionAmount; ++i) {
+            bytes32 transactionId = userToTransactionId[msg.sender][i + 1];
+            transactions[i] = transactionId;
+        }
     }
 }
