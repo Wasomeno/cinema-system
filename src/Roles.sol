@@ -47,8 +47,8 @@ contract Roles is Ownable {
     }
 
     modifier onlySuperAdmin() {
-        bool status = superAdminStatus[msg.sender];
-        require(status, "You're not a super admin");
+        bool result = isSuperAdmin();
+        require(result, "You're not a super admin");
         _;
     }
 
@@ -100,7 +100,7 @@ contract Roles is Ownable {
         );
     }
 
-    function checkAdmin(
+    function isCinemaAdmin(
         uint256 _region,
         uint256 _cinema,
         address _admin
@@ -109,5 +109,9 @@ contract Roles is Ownable {
             _cinema
         ];
         result = details.cinemaAdminStatus[_admin];
+    }
+
+    function isSuperAdmin() public view returns (bool result) {
+        result = superAdminStatus[msg.sender];
     }
 }
