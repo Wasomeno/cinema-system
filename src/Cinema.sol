@@ -11,6 +11,7 @@ contract Cinema is Ownable {
         uint8 studiosAmount;
         uint8 moviesAmount;
         uint8 showTimesAmount;
+        mapping(uint256 => uint256) movies;
         mapping(uint256 => uint64) showTimes;
         mapping(uint256 => StudioDetails) studioToDetails;
     }
@@ -75,15 +76,26 @@ contract Cinema is Ownable {
         _;
     }
 
-    modifier isAdmin(uint256 _region, uint256 _cinema) {
-        rolesInterface.checkAdmin(_region, _cinema, msg.sender);
+    modifier onlyCinemaAdmin(uint256 _region, uint256 _cinema) {
+        bool result = rolesInterface.isCinemaAdmin(
+            _region,
+            _cinema,
+            msg.sender
+        );
+        require(result, "You're not a cinema admin");
+        _;
+    }
+
+    modifier onlySuperAdmin() {
+        bool result = rolesInterface.isSuperAdmin();
+        require(result, "You're not a super admin");
         _;
     }
 
     function setInterface(
         address _rolesContractAddress,
         address _movieContractAddress
-    ) external {
+    ) external onlySuperAdmin {
         rolesInterface = IRoles(_rolesContractAddress);
         movieInterface = IMovies(_movieContractAddress);
     }
@@ -201,6 +213,7 @@ contract Cinema is Ownable {
         uint256[] calldata _showTimes
     )
         external
+        onlyCinemaAdmin(_region, _cinema)
         isMoviesExists(_movies)
         checkCinemaDetails(_region, _cinema, _studio, _showTimes)
     {
@@ -224,6 +237,7 @@ contract Cinema is Ownable {
         uint256[] calldata _showTimes
     )
         external
+        onlyCinemaAdmin(_region, _cinema)
         isMoviesExists(_movies)
         checkCinemaDetails(_region, _cinema, _studio, _showTimes)
     {
@@ -233,12 +247,11 @@ contract Cinema is Ownable {
             _studio
         ];
         for (uint256 i; i < _showTimes.length; ++i) {
-            uint256 movie = studioDetails.showTimeToMovie[_showTimes[i]];
             studioDetails.showTimeToMovie[_showTimes[i]] = uint64(_movies[i]);
         }
     }
 
-    function addRegion(uint256 _region, bytes32 _name) external {
+    function addRegion(uint256 _region, bytes32 _name) external onlySuperAdmin {
         uint256 currentRegionAmount = regionsAmount;
         availableRegions[currentRegionAmount + 1] = _region;
         RegionDetails storage details = regionToDetails[_region];
@@ -252,7 +265,7 @@ contract Cinema is Ownable {
         bytes32 _name,
         uint256 _studiosAmount,
         uint256[] calldata _studioCapacity
-    ) external {
+    ) external onlySuperAdmin {
         RegionDetails storage regionDetails = regionToDetails[_region];
         uint256 currentCinemasAmount = regionToDetails[_region].cinemasAmount;
         CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
@@ -279,7 +292,7 @@ contract Cinema is Ownable {
         uint256 _region,
         uint256 _cinema,
         uint256 _time
-    ) external {
+    ) external onlyCinemaAdmin(_region, _cinema) {
         RegionDetails storage regionDetails = regionToDetails[_region];
         CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
             _cinema
@@ -294,7 +307,7 @@ contract Cinema is Ownable {
         uint256 _cinema,
         uint256 _studio,
         uint256[] calldata _showTimes
-    ) external {
+    ) external onlyCinemaAdmin(_region, _cinema) {
         RegionDetails storage regionDetails = regionToDetails[_region];
         CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
             _cinema
@@ -349,7 +362,7 @@ contract Cinema is Ownable {
         uint256 _region,
         uint256 _cinema,
         uint256 _amount
-    ) external {
+    ) external onlySuperAdmin {
         RegionDetails storage regionDetails = regionToDetails[_region];
         CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
             _cinema
