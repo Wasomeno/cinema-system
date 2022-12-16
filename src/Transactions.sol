@@ -10,6 +10,10 @@ contract Transactions {
         uint64 priceTotal;
     }
 
+    mapping(uint256 => mapping(uint256 => uint256))
+        public cinemaToTransactionAmount;
+    mapping(uint256 => mapping(uint256 => mapping(uint256 => bytes32)))
+        public cinemaToTransactionId;
     mapping(address => uint256) public userToTransactionAmount;
     mapping(address => mapping(uint256 => bytes32)) public userToTransactionId;
     mapping(bytes32 => TransactionDetails) public transactionIdToDetails;
@@ -20,14 +24,27 @@ contract Transactions {
         bytes32[] calldata _ticketIds,
         uint256 _priceTotal
     ) external {
+        uint256 cinemaTransactionAmount = cinemaToTransactionAmount[_region][
+            _cinema
+        ];
         uint256 userTransactionAmount = userToTransactionAmount[msg.sender];
+        uint256 newCinemaTransactionAmount = cinemaTransactionAmount + 1;
         uint256 newUserTransactionAmount = userTransactionAmount + 1;
         bytes32 transactionId = keccak256(
-            abi.encode(_region, _cinema, newUserTransactionAmount, msg.sender)
+            abi.encode(
+                _region,
+                _cinema,
+                newCinemaTransactionAmount,
+                newUserTransactionAmount,
+                msg.sender
+            )
         );
         TransactionDetails storage transactionDetails = transactionIdToDetails[
             transactionId
         ];
+        cinemaToTransactionId[_region][_cinema][
+            newCinemaTransactionAmount
+        ] = transactionId;
         userToTransactionId[msg.sender][
             newUserTransactionAmount
         ] = transactionId;
