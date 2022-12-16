@@ -81,4 +81,35 @@ contract Transactions {
             transactions[i] = transactionId;
         }
     }
+
+    function getCinemaTransactions(uint256 _cinema, uint256 _region)
+        external
+        view
+        returns (bytes32[] memory transactions)
+    {
+        uint256 transactionAmount = cinemaToTransactionAmount[_region][_cinema];
+        transactions = new bytes32[](transactionAmount);
+        for (uint256 i; i < transactionAmount; ++i) {
+            bytes32 transactionId = cinemaToTransactionId[_region][_cinema][
+                i + 1
+            ];
+            transactions[i] = transactionId;
+        }
+    }
+
+    function getCinemaTransactionsDetails(uint256 _region, uint256 _cinema)
+        external
+        view
+        returns (TransactionDetails[] memory transactionsDetails)
+    {
+        uint256 transactionAmount = cinemaToTransactionAmount[_region][_cinema];
+        transactionsDetails = new TransactionDetails[](transactionAmount);
+        for (uint256 i; i < transactionAmount; ++i) {
+            bytes32 transactionId = cinemaToTransactionId[_region][_cinema][
+                i + 1
+            ];
+            transactionsDetails[i] = transactionIdToDetails[transactionId];
+        }
+        return transactionsDetails;
+    }
 }
