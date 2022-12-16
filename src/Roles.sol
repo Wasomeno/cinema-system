@@ -12,11 +12,6 @@ contract Roles is Ownable {
         mapping(address => AdminDetails) adminDetails;
     }
 
-    struct UserDetails {
-        mapping(uint256 => mapping(uint256 => uint256)) transactionAmount;
-        mapping(uint256 => mapping(uint256 => mapping(uint256 => bytes32))) transactionDetails;
-    }
-
     struct AdminDetails {
         uint8 region;
         uint32 cinema;
@@ -27,7 +22,6 @@ contract Roles is Ownable {
 
     mapping(uint256 => mapping(uint256 => CinemaAdminsDetails))
         public cinemaAdminsDetails;
-    mapping(address => UserDetails) internal userToDetails;
     mapping(address => bool) public superAdminStatus;
     mapping(uint256 => address) public superAdmins;
 
@@ -66,20 +60,6 @@ contract Roles is Ownable {
 
     function setInterface(address _cinemaContractAddress) external {
         cinemaInterface = ICinema(_cinemaContractAddress);
-    }
-
-    function updateUserTransactions(
-        uint256 _region,
-        uint256 _cinema,
-        bytes32 _ticket
-    ) external {
-        UserDetails storage details = userToDetails[msg.sender];
-        uint256 transactionAmount = details.transactionAmount[_region][_cinema];
-        uint256 newTransactionAmount = transactionAmount + 1;
-        details.transactionDetails[_region][_cinema][
-            newTransactionAmount
-        ] = _ticket;
-        details.transactionAmount[_region][_cinema] = newTransactionAmount;
     }
 
     function addSuperAdmins(address[] memory _newAdmins) public onlyOwner {
