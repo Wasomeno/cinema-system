@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import "../lib/erc721a/contracts/extensions/ERC721ABurnable.sol";
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "./ICinema.sol";
+import "./ITransactions.sol";
 
 contract Ticket is ERC721ABurnable, Ownable {
     struct TicketDetails {
@@ -17,6 +18,7 @@ contract Ticket is ERC721ABurnable, Ownable {
     }
 
     ICinema public cinemaInterface;
+    ITransactions public transactionsInterface;
     uint64 public constant TICKET_PRICE_WEEKDAYS = 0.001 ether;
     uint64 public constant TICKET_PRICE_WEEKEND = 0.0012 ether;
 
@@ -42,8 +44,12 @@ contract Ticket is ERC721ABurnable, Ownable {
         _;
     }
 
-    function setInterfaces(address _cinemaContract) external onlyOwner {
+    function setInterfaces(
+        address _cinemaContract,
+        address _transactionsContract
+    ) external onlyOwner {
         cinemaInterface = ICinema(_cinemaContract);
+        transactionsInterface = ITransactions(_transactionsContract);
     }
 
     function mintTickets(
@@ -60,12 +66,14 @@ contract Ticket is ERC721ABurnable, Ownable {
         seatsCheck(_region, _cinema, _studio, _showTime, _seatNumbers)
     {
         uint256 price = getPrice(_day);
+        uint256 priceTotal = price * _seatNumbers.length;
+        bytes32[] memory ticketIds = new bytes32[](_seatNumbers.length);
         // require(
-        //     msg.value == price * _seatNumbers.length,
+        //     msg.value == priceTotal,
         //     "Wrong eth value sent"
         // );
         for (uint256 i; i < _seatNumbers.length; ++i) {
-            mintTicket(
+            bytes32 ticketId = mintTicket(
                 _region,
                 _cinema,
                 _studio,
@@ -73,7 +81,14 @@ contract Ticket is ERC721ABurnable, Ownable {
                 _movie,
                 _seatNumbers[i]
             );
+            ticketIds[i] = ticketId;
         }
+        transactionsInterface.addNewTransaction(
+            _region,
+            _cinema,
+            ticketIds,
+            priceTotal
+        );
     }
 
     function mintTicket(
@@ -83,10 +98,11 @@ contract Ticket is ERC721ABurnable, Ownable {
         uint256 _showTime,
         uint256 _movie,
         uint256 _seatNumber
-    ) internal {
+    ) internal returns (bytes32 _ticketId) {
         bytes32 ticketId = keccak256(
             abi.encode(_nextTokenId(), _region, _cinema, msg.sender)
         );
+        _ticketId = ticketId;
         TicketDetails storage details = ticketToDetails[ticketId];
         details.cinema = uint8(_cinema);
         details.movie = uint32(_movie);
