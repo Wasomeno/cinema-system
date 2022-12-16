@@ -20,23 +20,25 @@ contract Ticket is ERC721ABurnable, Ownable {
     uint64 public constant TICKET_PRICE_WEEKDAYS = 0.001 ether;
     uint64 public constant TICKET_PRICE_WEEKEND = 0.0012 ether;
 
-    mapping(uint256 => mapping(uint256 => mapping(bytes32 => TicketDetails)))
-        public cinemaToTicketDetails;
-    mapping(uint256 => mapping(uint256 => uint256)) public cinemaToTicketsSold;
-    mapping(uint256 => mapping(uint256 => mapping(uint256 => mapping(uint256 => bool))))
+    mapping(bytes32 => TicketDetails) public ticketToDetails;
+    mapping(uint256 => mapping(uint256 => mapping(uint256 => mapping(uint256 => mapping(uint256 => bool)))))
         public seatStatus;
-    mapping(address => bool) public approvedAddresses;
 
     constructor() ERC721A("Cinema 21 Tickets", "C21") {}
 
-    modifier ticketCheck(
+    modifier seatsCheck(
         uint256 _region,
         uint256 _cinema,
         uint256 _studio,
         uint256 _showTime,
         uint256[] calldata _seats
     ) {
-        checkSeats(_cinema, _studio, _showTime, _seats);
+        for (uint256 i; i < _seats.length; ++i) {
+            bool status = seatStatus[_region][_cinema][_studio][_showTime][
+                _seats[i]
+            ];
+            require(!status, "taken");
+        }
         _;
     }
 
@@ -44,64 +46,54 @@ contract Ticket is ERC721ABurnable, Ownable {
         cinemaInterface = ICinema(_cinemaContract);
     }
 
-    function convertToTicketDetails(
+    function mintTickets(
+        uint256 _day,
         uint256 _region,
         uint256 _cinema,
         uint256 _studio,
-        uint256 _movie,
         uint256 _showTime,
-        uint256 _day
-    ) external pure returns (TicketDetails memory details) {
-        details = TicketDetails(
-            uint32(_region),
-            uint8(_cinema),
-            uint8(_studio),
-            uint32(_movie),
-            uint64(_showTime),
-            uint8(_day),
-            0
-        );
-    }
-
-    function mintTickets(
-        TicketDetails calldata _details,
+        uint256 _movie,
         uint256[] calldata _seatNumbers
     )
         external
         payable
-        ticketCheck(
-            _details.region,
-            _details.cinema,
-            _details.studio,
-            _details.time,
-            _seatNumbers
-        )
+        seatsCheck(_region, _cinema, _studio, _showTime, _seatNumbers)
     {
-        uint256 price = getPrice(_details.day);
+        uint256 price = getPrice(_day);
         // require(
         //     msg.value == price * _seatNumbers.length,
         //     "Wrong eth value sent"
         // );
         for (uint256 i; i < _seatNumbers.length; ++i) {
-            mintTicket(_details, _seatNumbers[i]);
+            mintTicket(
+                _region,
+                _cinema,
+                _studio,
+                _showTime,
+                _movie,
+                _seatNumbers[i]
+            );
         }
     }
 
-    function mintTicket(TicketDetails calldata _details, uint256 _seatNumber)
-        internal
-    {
-        bytes32 ticketId = keccak256(abi.encode(_nextTokenId()));
-        TicketDetails storage details = cinemaToTicketDetails[_details.region][
-            _details.cinema
-        ][ticketId];
-        details.cinema = uint8(_details.cinema);
-        details.movie = uint32(_details.movie);
-        details.studio = uint8(_details.studio);
-        details.region = uint32(_details.region);
-        details.time = uint64(_details.time);
-        seatStatus[_details.cinema][_details.studio][_details.time][
-            _seatNumber
-        ] = true;
+    function mintTicket(
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _studio,
+        uint256 _showTime,
+        uint256 _movie,
+        uint256 _seatNumber
+    ) internal {
+        bytes32 ticketId = keccak256(
+            abi.encode(_nextTokenId(), _region, _cinema, msg.sender)
+        );
+        TicketDetails storage details = ticketToDetails[ticketId];
+        details.cinema = uint8(_cinema);
+        details.movie = uint32(_movie);
+        details.studio = uint8(_studio);
+        details.region = uint32(_region);
+        details.time = uint64(_showTime);
+        seatStatus[_region][_cinema][_studio][_showTime][_seatNumber] = true;
         _mint(msg.sender, 1);
     }
 
@@ -110,18 +102,6 @@ contract Ticket is ERC721ABurnable, Ownable {
             price = TICKET_PRICE_WEEKEND;
         } else {
             price = TICKET_PRICE_WEEKDAYS;
-        }
-    }
-
-    function checkSeats(
-        uint256 _cinema,
-        uint256 _studio,
-        uint256 _showTime,
-        uint256[] calldata _seats
-    ) internal view {
-        for (uint256 i; i < _seats.length; ++i) {
-            bool status = seatStatus[_cinema][_studio][_showTime][_seats[i]];
-            require(!status, "taken");
         }
     }
 
@@ -139,7 +119,9 @@ contract Ticket is ERC721ABurnable, Ownable {
         );
         seats = new uint256[](seatsAmount);
         for (uint256 i; i < seatsAmount; ++i) {
-            bool status = seatStatus[_cinema][_studio][_showTime][i + 1];
+            bool status = seatStatus[_region][_cinema][_studio][_showTime][
+                i + 1
+            ];
             if (status != true) {
                 seats[seatsIndex] = i + 1;
                 seatsIndex++;
