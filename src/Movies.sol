@@ -10,7 +10,7 @@ contract Movies {
     }
     uint32 public moviesTotal;
     mapping(uint256 => MovieDetails) public movieToDetails;
-    mapping(uint256 => bool) public ExsistsMovies;
+    mapping(uint256 => bool) public movieExistStatus;
 
     function addMovies(
         bytes32[] calldata _titles,
@@ -19,6 +19,7 @@ contract Movies {
         uint256 total = moviesTotal;
         for (uint256 i; i < _titles.length; ++i) {
             total += 1;
+            movieExistStatus[total] = true;
             MovieDetails storage details = movieToDetails[total];
             details.duration = uint64(_durations[i]);
             details.title = _titles[i];
@@ -34,15 +35,15 @@ contract Movies {
         details = movieToDetails[_movieId];
     }
 
-    function getMovies() external view returns (bytes32[] memory movies) {
+    function getMovies() external view returns (uint256[] memory movies) {
         uint256 currentAmount = moviesTotal;
-        movies = new bytes32[](currentAmount);
+        movies = new uint256[](currentAmount);
         for (uint256 i; i < currentAmount; ++i) {
-            movies[i] = movieToDetails[i + 1].title;
+            movies[i] = i + 1;
         }
     }
 
     function isMovieExist(uint256 _movie) public view returns (bool result) {
-        result = ExsistsMovies[_movie];
+        result = movieExistStatus[_movie];
     }
 }
