@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.16;
+pragma solidity 0.8.13;
 
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "./IRoles.sol";
@@ -32,9 +32,6 @@ contract Cinema is Ownable {
 
     IRoles internal rolesInterface;
     IMovies internal movieInterface;
-
-    uint64 public constant TICKET_PRICE_WEEKDAYS = 0.001 ether;
-    uint64 public constant TICKET_PRICE_WEEKEND = 0.0012 ether;
 
     uint64 private unixTime;
     bool private isOpen;
@@ -95,7 +92,7 @@ contract Cinema is Ownable {
     function setInterface(
         address _rolesContractAddress,
         address _movieContractAddress
-    ) external onlySuperAdmin {
+    ) external onlyOwner {
         rolesInterface = IRoles(_rolesContractAddress);
         movieInterface = IMovies(_movieContractAddress);
     }
@@ -346,6 +343,20 @@ contract Cinema is Ownable {
         details = regionToDetails[_region];
     }
 
+    function getCinemasInRegion(uint256 _region)
+        external
+        view
+        returns (uint256[] memory cinemas)
+    {
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        uint256 cinemasAmount = regionDetails.cinemasAmount;
+        cinemas = new uint256[](cinemasAmount);
+        for (uint256 i; i < cinemasAmount; ++i) {
+            uint256 cinema = regionDetails.cinemas[i + 1];
+            cinemas[i] = cinema;
+        }
+    }
+
     function getStudioCapacity(
         uint256 _region,
         uint256 _cinema,
@@ -361,14 +372,18 @@ contract Cinema is Ownable {
     function addMoviesToCinema(
         uint256 _region,
         uint256 _cinema,
-        uint256 _amount
-    ) external onlySuperAdmin {
+        uint256[] calldata _movies
+    ) external onlySuperAdmin isMoviesExists(_movies) {
         RegionDetails storage regionDetails = regionToDetails[_region];
         CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
             _cinema
         ];
-        uint256 amount = cinemaDetails.moviesAmount;
-        cinemaDetails.moviesAmount = uint8(amount + _amount);
+        uint256 cinemaMoviesAmount = cinemaDetails.moviesAmount;
+        for (uint256 i; i < _movies.length; ++i) {
+            cinemaMoviesAmount += 1;
+            cinemaDetails.movies[cinemaMoviesAmount] = _movies[i];
+        }
+        cinemaDetails.moviesAmount = uint8(cinemaMoviesAmount);
     }
 
     function checkShowTime(
@@ -411,5 +426,22 @@ contract Cinema is Ownable {
         ];
 
         amount = cinemaDetails.moviesAmount;
+    }
+
+    function getCinemaMovies(uint256 _region, uint256 _cinema)
+        public
+        view
+        returns (uint256[] memory movies)
+    {
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        CinemaDetails storage cinemaDetails = regionDetails.cinemaToDetails[
+            _cinema
+        ];
+        uint256 moviesAmount = cinemaDetails.moviesAmount;
+        movies = new uint256[](moviesAmount);
+        for (uint256 i; i < moviesAmount; ++i) {
+            uint256 movie = cinemaDetails.movies[i + 1];
+            movies[i] = movie;
+        }
     }
 }
