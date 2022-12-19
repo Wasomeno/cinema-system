@@ -107,5 +107,33 @@ contract Region {
         regionDetails.cinemasAmount = uint8(currentCinemasAmount);
     }
 
-    function deleteRegion(uint256 _region) external onlySuperAdmin {}
+    function deleteRegion(uint256 _region) external onlySuperAdmin {
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        uint256 amount = regionsAmount;
+        uint256 regionKey = getRegionKey(_region);
+        require(regionKey != 0, "Region not found");
+        activeRegions[regionKey] = activeRegions[amount - 1];
+        delete activeRegions[amount - 1];
+        delete regionDetails.name;
+        delete regionDetails.cinemasAmount;
+        deleteCinemasInRegion(_region);
+    }
+
+    function getRegionKey(uint256 _region) internal view returns (uint256 key) {
+        uint256 amount = regionsAmount;
+        for (uint256 i; i < amount; ++i) {
+            uint256 region = activeRegions[i];
+            if (region == _region) {
+                key = i;
+            }
+        }
+    }
+
+    function deleteCinemasInRegion(uint256 _region) internal {
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        uint256 cinemasAmount = regionDetails.cinemasAmount;
+        for (uint256 i; i < cinemasAmount; ++i) {
+            delete regionDetails.cinemas[i];
+        }
+    }
 }
