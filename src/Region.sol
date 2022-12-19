@@ -12,7 +12,8 @@ contract Region {
     IRoles internal rolesInterface;
     uint256 private regionsAmount;
 
-    mapping(uint256 => bool) public activeRegions;
+    mapping(uint256 => uint256) public activeRegions;
+    mapping(uint256 => bool) public activeRegionsStatus;
     mapping(uint256 => RegionDetails) public regionToDetails;
 
     modifier onlySuperAdmin() {
@@ -22,7 +23,7 @@ contract Region {
     }
 
     modifier isRegionActive(uint256 _region) {
-        bool result = activeRegions[_region];
+        bool result = activeRegionsStatus[_region];
         require(!result, "Region already active");
         _;
     }
@@ -31,16 +32,39 @@ contract Region {
         uint256 amount = regionsAmount;
         regions = new uint256[](amount);
         for (uint256 i; i < amount; ++i) {
-            regions[i] = i + 1;
+            regions[i] = activeRegions[i];
         }
     }
 
     function getRegionsDetails(uint256 _region)
-        internal
+        public
         view
-        returns (RegionDetails storage details)
+        returns (
+            bytes32 _name,
+            uint256 _cinemasAmount,
+            uint256[] memory _cinemas
+        )
     {
-        details = regionToDetails[_region];
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        return (
+            regionDetails.name,
+            regionDetails.cinemasAmount,
+            getCinemasInRegion(_region)
+        );
+    }
+
+    function getCinemasInRegion(uint256 _region)
+        public
+        view
+        returns (uint256[] memory cinemas)
+    {
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        uint256 cinemasAmount = regionDetails.cinemasAmount;
+        cinemas = new uint256[](cinemasAmount);
+        for (uint256 i; i < cinemasAmount; ++i) {
+            uint256 cinema = regionDetails.cinemas[i];
+            cinemas[i] = cinema;
+        }
     }
 
     function checkCinemaInRegion(uint256 _region, uint256 _cinema)
@@ -64,10 +88,24 @@ contract Region {
         isRegionActive(_region)
     {
         uint256 currentRegionAmount = regionsAmount;
-        activeRegions[currentRegionAmount + 1] = true;
+        activeRegionsStatus[_region] = true;
         RegionDetails storage details = regionToDetails[_region];
         details.cinemasAmount = 0;
         details.name = _name;
         regionsAmount = uint8(currentRegionAmount + 1);
     }
+
+    function addCinemasInRegion(uint256 _region, uint256[] calldata _cinemas)
+        public
+    {
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        uint256 currentCinemasAmount = regionDetails.cinemasAmount;
+        for (uint256 i; i < _cinemas.length; ++i) {
+            regionDetails.cinemas[currentCinemasAmount] = uint32(_cinemas[i]);
+            currentCinemasAmount += 1;
+        }
+        regionDetails.cinemasAmount = uint8(currentCinemasAmount);
+    }
+
+    function deleteRegion(uint256 _region) external onlySuperAdmin {}
 }
