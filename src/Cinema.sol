@@ -257,15 +257,49 @@ contract Cinema is Ownable {
         regionInterface.addCinemasInRegion(_region, _cinemaIds);
     }
 
-    function addShowTime(
+    function addShowTimes(
+        uint256 _region,
+        uint256 _cinema,
+        uint256[] calldata _times
+    ) external onlyCinemaAdmin(_region, _cinema) {
+        CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
+        uint256 currentShowTimesAmount = cinemaDetails.showTimesAmount;
+        for (uint256 i; i < _times.length; ++i) {
+            currentShowTimesAmount += 1;
+            cinemaDetails.showTimes[currentShowTimesAmount] = uint64(_times[i]);
+        }
+        cinemaDetails.showTimesAmount = uint8(currentShowTimesAmount);
+    }
+
+    function deleteShowTime(
         uint256 _region,
         uint256 _cinema,
         uint256 _time
     ) external onlyCinemaAdmin(_region, _cinema) {
         CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
         uint256 currentShowTimesAmount = cinemaDetails.showTimesAmount;
-        cinemaDetails.showTimes[currentShowTimesAmount + 1] = uint64(_time);
-        cinemaDetails.showTimesAmount = uint8(currentShowTimesAmount + 1);
+        uint256 showTimeKey = getShowTimeKey(_region, _cinema, _time);
+        uint256 showTimeLast = cinemaDetails.showTimes[
+            currentShowTimesAmount - 1
+        ];
+        cinemaDetails.showTimes[showTimeKey] = uint64(showTimeLast);
+        delete cinemaDetails.showTimes[currentShowTimesAmount - 1];
+        cinemaDetails.showTimesAmount = uint8(currentShowTimesAmount - 1);
+    }
+
+    function getShowTimeKey(
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _time
+    ) internal view returns (uint256 key) {
+        CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
+        uint256 currentShowTimesAmount = cinemaDetails.showTimesAmount;
+        for (uint256 i; i < currentShowTimesAmount; ++i) {
+            uint256 showTime = cinemaDetails.showTimes[i];
+            if (showTime == _time) {
+                key = i;
+            }
+        }
     }
 
     function addStudioShowTimes(
