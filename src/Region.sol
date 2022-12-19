@@ -4,6 +4,7 @@ import "./IRoles.sol";
 
 contract Region {
     struct RegionDetails {
+        uint256 regionId;
         bytes32 name;
         uint8 cinemasAmount;
         mapping(uint256 => uint32) cinemas;
@@ -90,6 +91,7 @@ contract Region {
         uint256 currentRegionAmount = regionsAmount;
         activeRegionsStatus[_region] = true;
         RegionDetails storage details = regionToDetails[_region];
+        details.regionId = _region;
         details.cinemasAmount = 0;
         details.name = _name;
         regionsAmount = uint8(currentRegionAmount + 1);
@@ -113,10 +115,19 @@ contract Region {
         uint256 regionKey = getRegionKey(_region);
         require(regionKey != 0, "Region not found");
         activeRegions[regionKey] = activeRegions[amount - 1];
+        delete activeRegionsStatus[_region];
         delete activeRegions[amount - 1];
         delete regionDetails.name;
         delete regionDetails.cinemasAmount;
         deleteCinemasInRegion(_region);
+    }
+
+    function updateRegionName(uint256 _region, bytes32 _name)
+        external
+        onlySuperAdmin
+    {
+        RegionDetails storage regionDetails = regionToDetails[_region];
+        regionDetails.name = _name;
     }
 
     function getRegionKey(uint256 _region) internal view returns (uint256 key) {
