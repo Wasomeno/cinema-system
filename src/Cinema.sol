@@ -52,6 +52,7 @@ contract Cinema is Ownable {
             _cinema,
             _studio
         );
+
         for (uint256 i; i < _showTimes.length; ++i) {
             bool isShowTimeExist = checkShowTime(
                 _region,
@@ -185,7 +186,7 @@ contract Cinema is Ownable {
         uint256 studiosAmount = cinemaDetails.studiosAmount;
         showTimes = new uint256[][](studiosAmount);
         for (uint256 i; i < studiosAmount; ++i) {
-            showTimes[i] = getStudioShowTimes(_region, _cinema, i);
+            showTimes[i] = getStudioShowTimes(_region, _cinema, i + 1);
         }
     }
 
@@ -230,6 +231,25 @@ contract Cinema is Ownable {
         ];
         for (uint256 i; i < _showTimes.length; ++i) {
             studioDetails.showTimeToMovie[_showTimes[i]] = uint64(_movies[i]);
+        }
+    }
+
+    function deleteMoviesInStudio(
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _studio,
+        uint256[] calldata _showTimes
+    )
+        external
+        onlyCinemaAdmin(_region, _cinema)
+        checkCinemaDetails(_region, _cinema, _studio, _showTimes)
+    {
+        CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
+        StudioDetails storage studioDetails = cinemaDetails.studioToDetails[
+            _studio
+        ];
+        for (uint256 i; i < _showTimes.length; ++i) {
+            delete studioDetails.showTimeToMovie[_showTimes[i]];
         }
     }
 
@@ -348,6 +368,38 @@ contract Cinema is Ownable {
             cinemaDetails.movies[cinemaMoviesAmount] = _movies[i];
         }
         cinemaDetails.moviesAmount = uint8(cinemaMoviesAmount);
+    }
+
+    function deleteMoviesInCinema(
+        uint256 _region,
+        uint256 _cinema,
+        uint256[] calldata _movies
+    ) external {
+        CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
+        uint256 currentMoviesAmount = cinemaDetails.moviesAmount;
+        uint256[] memory movieKeys = getMovieKeys(_region, _cinema, _movies);
+        for (uint256 i; i < movieKeys.length; ++i) {
+            currentMoviesAmount -= 1;
+            uint256 movieInLastKey = cinemaDetails.movies[currentMoviesAmount];
+            cinemaDetails.movies[movieKeys[i]] = movieInLastKey;
+            delete cinemaDetails.movies[currentMoviesAmount];
+        }
+    }
+
+    function getMovieKeys(
+        uint256 _region,
+        uint256 _cinema,
+        uint256[] calldata _movies
+    ) internal view returns (uint256[] memory keys) {
+        keys = new uint256[](_movies.length);
+        CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
+        uint256 currentMoviesAmount = cinemaDetails.moviesAmount;
+        for (uint256 i; i < currentMoviesAmount; ++i) {
+            uint256 movie = cinemaDetails.movies[i];
+            if (movie == _movies[i]) {
+                keys[i] = i;
+            }
+        }
     }
 
     function checkShowTime(
