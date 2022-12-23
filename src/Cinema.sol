@@ -107,14 +107,6 @@ contract Cinema is Ownable {
         regionInterface = IRegion(_regionContractAddress);
     }
 
-    function resetTime() external {
-        isOpen = true;
-        uint256 dailyTimeChange = unixTime + 24 hours;
-        unixTime < block.timestamp
-            ? setUnixTime(dailyTimeChange)
-            : setUnixTime(unixTime);
-    }
-
     function getCinemaDetails(uint256 _region, uint256 _cinema)
         external
         view
@@ -269,7 +261,7 @@ contract Cinema is Ownable {
         bytes32[] calldata _names,
         uint256[] calldata _studiosAmounts,
         uint256[][] calldata _studioCapacities
-    ) external {
+    ) external onlySuperAdmin {
         for (uint256 i; i < _cinemaIds.length; ++i) {
             CinemaDetails storage cinemaDetails = cinemaToDetails[_region][
                 _cinemaIds[i]
@@ -300,13 +292,25 @@ contract Cinema is Ownable {
     function addShowTimes(
         uint256 _region,
         uint256 _cinema,
-        uint256[] calldata _times
-    ) external onlyCinemaAdmin(_region, _cinema) {
+        uint256[] calldata _showTimes
+    )
+        external
+        onlyCinemaAdmin(_region, _cinema)
+        isCinemaExist(_region, _cinema)
+    {
         CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
         uint256 currentShowTimesAmount = cinemaDetails.showTimesAmount;
-        for (uint256 i; i < _times.length; ++i) {
+        for (uint256 i; i < _showTimes.length; ++i) {
+            bool isShowTimeExist = checkShowTime(
+                _region,
+                _cinema,
+                _showTimes[i]
+            );
+            require(!isShowTimeExist, "Show time already exist");
             currentShowTimesAmount += 1;
-            cinemaDetails.showTimes[currentShowTimesAmount] = uint64(_times[i]);
+            cinemaDetails.showTimes[currentShowTimesAmount] = uint64(
+                _showTimes[i]
+            );
         }
         cinemaDetails.showTimesAmount = uint8(currentShowTimesAmount);
     }
@@ -314,11 +318,17 @@ contract Cinema is Ownable {
     function deleteShowTime(
         uint256 _region,
         uint256 _cinema,
-        uint256 _time
-    ) external onlyCinemaAdmin(_region, _cinema) {
+        uint256 _showTime
+    )
+        external
+        onlyCinemaAdmin(_region, _cinema)
+        isCinemaExist(_region, _cinema)
+    {
+        bool isShowTimeExist = checkShowTime(_region, _cinema, _showTime);
+        require(isShowTimeExist, "Show time does not exist");
         CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
         uint256 currentShowTimesAmount = cinemaDetails.showTimesAmount;
-        uint256 showTimeKey = getShowTimeKey(_region, _cinema, _time);
+        uint256 showTimeKey = getShowTimeKey(_region, _cinema, _showTime);
         uint256 showTimeLast = cinemaDetails.showTimes[
             currentShowTimesAmount - 1
         ];
@@ -347,7 +357,12 @@ contract Cinema is Ownable {
         uint256 _cinema,
         uint256 _studio,
         uint256[] calldata _showTimes
-    ) external onlyCinemaAdmin(_region, _cinema) {
+    )
+        external
+        onlyCinemaAdmin(_region, _cinema)
+        isCinemaExist(_region, _cinema)
+        isStudioShowTimesExist(_region, _cinema, _studio, _showTimes)
+    {
         CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
         StudioDetails storage studioDetails = cinemaDetails.studioToDetails[
             _studio
@@ -380,7 +395,12 @@ contract Cinema is Ownable {
         uint256 _region,
         uint256 _cinema,
         uint256[] calldata _movies
-    ) external onlySuperAdmin isMoviesExists(_movies) {
+    )
+        external
+        onlySuperAdmin
+        isCinemaExist(_region, _cinema)
+        isMoviesExists(_movies)
+    {
         CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
         uint256 cinemaMoviesAmount = cinemaDetails.moviesAmount;
         for (uint256 i; i < _movies.length; ++i) {
@@ -394,7 +414,12 @@ contract Cinema is Ownable {
         uint256 _region,
         uint256 _cinema,
         uint256[] calldata _movies
-    ) external {
+    )
+        external
+        onlyCinemaAdmin(_region, _cinema)
+        isCinemaExist(_region, _cinema)
+        isMoviesExists(_movies)
+    {
         CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
         uint256 currentMoviesAmount = cinemaDetails.moviesAmount;
         uint256[] memory movieKeys = getMovieKeys(_region, _cinema, _movies);
