@@ -32,36 +32,43 @@ contract Cinema is Ownable {
 
     uint64 private unixTime;
     bool private isOpen;
-    uint8 public regionsAmount;
 
     mapping(uint256 => mapping(uint256 => CinemaDetails))
         public cinemaToDetails;
 
-    modifier checkCinemaDetails(
+    modifier isCinemaExist(uint256 _region, uint256 _cinema) {
+        bool result = regionInterface.checkCinemaInRegion(_region, _cinema);
+        require(result, "Cinema or Region not exist");
+        _;
+    }
+
+    modifier isShowTimesExist(
+        uint256 _region,
+        uint256 _cinema,
+        uint256[] calldata _showTimes
+    ) {
+        for (uint256 i; i < _showTimes.length; ++i) {
+            bool result = checkShowTime(_region, _cinema, _showTimes[i]);
+            require(result, "Studio or Showtime not exist");
+        }
+        _;
+    }
+
+    modifier isStudioShowTimesExist(
         uint256 _region,
         uint256 _cinema,
         uint256 _studio,
-        uint256[] calldata _showTimes
+        uint256[] calldata _studioShowTimes
     ) {
-        bool isCinemaExist = regionInterface.checkCinemaInRegion(
-            _region,
-            _cinema
-        );
-        uint256[] memory studioShowTimes = getStudioShowTimes(
-            _region,
-            _cinema,
-            _studio
-        );
-
-        for (uint256 i; i < _showTimes.length; ++i) {
-            bool isShowTimeExist = checkShowTime(
+        for (uint256 i; i < _studioShowTimes.length; ++i) {
+            bool result = checkStudioShowTime(
                 _region,
                 _cinema,
-                _showTimes[i]
+                _studio,
+                _studioShowTimes[i]
             );
-            require(isShowTimeExist, "Studio or Showtime not exist");
+            require(result, "Showtime does not exist");
         }
-        require(isCinemaExist, "Cinema or Region not exist");
         _;
     }
 
@@ -190,7 +197,7 @@ contract Cinema is Ownable {
         }
     }
 
-    function addMoviesToStudio(
+    function addMovieToStudio(
         uint256[] calldata _movies,
         uint256 _region,
         uint256 _cinema,
@@ -199,8 +206,9 @@ contract Cinema is Ownable {
     )
         external
         onlyCinemaAdmin(_region, _cinema)
+        isCinemaExist(_region, _cinema)
+        isStudioShowTimesExist(_region, _cinema, _studio, _showTimes)
         isMoviesExists(_movies)
-        checkCinemaDetails(_region, _cinema, _studio, _showTimes)
     {
         CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
         StudioDetails storage studioDetails = cinemaDetails.studioToDetails[
@@ -222,8 +230,9 @@ contract Cinema is Ownable {
     )
         external
         onlyCinemaAdmin(_region, _cinema)
+        isCinemaExist(_region, _cinema)
+        isStudioShowTimesExist(_region, _cinema, _studio, _showTimes)
         isMoviesExists(_movies)
-        checkCinemaDetails(_region, _cinema, _studio, _showTimes)
     {
         CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
         StudioDetails storage studioDetails = cinemaDetails.studioToDetails[
@@ -242,7 +251,8 @@ contract Cinema is Ownable {
     )
         external
         onlyCinemaAdmin(_region, _cinema)
-        checkCinemaDetails(_region, _cinema, _studio, _showTimes)
+        isCinemaExist(_region, _cinema)
+        isStudioShowTimesExist(_region, _cinema, _studio, _showTimes)
     {
         CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
         StudioDetails storage studioDetails = cinemaDetails.studioToDetails[
@@ -258,16 +268,16 @@ contract Cinema is Ownable {
         uint256[] calldata _cinemaIds,
         bytes32[] calldata _names,
         uint256[] calldata _studiosAmounts,
-        uint256[] calldata _studioCapacity
-    ) external onlySuperAdmin {
+        uint256[][] calldata _studioCapacities
+    ) external {
         for (uint256 i; i < _cinemaIds.length; ++i) {
             CinemaDetails storage cinemaDetails = cinemaToDetails[_region][
                 _cinemaIds[i]
             ];
-            for (uint256 j; j < _studiosAmounts[j]; ++j) {
+            for (uint256 j; j < _studiosAmounts[i]; ++j) {
                 StudioDetails storage studioDetails = cinemaDetails
                     .studioToDetails[j + 1];
-                studioDetails.capacity = uint8(_studioCapacity[j]);
+                studioDetails.capacity = uint8(_studioCapacities[i][j]);
             }
             cinemaDetails.moviesAmount = 0;
             cinemaDetails.name = _names[i];
@@ -275,6 +285,16 @@ contract Cinema is Ownable {
             cinemaDetails.showTimesAmount = 0;
         }
         regionInterface.addCinemasInRegion(_region, _cinemaIds);
+    }
+
+    function deleteCinemas(uint256 _region, uint256[] calldata _cinemaIds)
+        external
+        onlySuperAdmin
+    {
+        for (uint256 i; i < _cinemaIds.length; ++i) {
+            delete cinemaToDetails[_region][_cinemaIds[i]];
+        }
+        regionInterface.deleteCinemasInRegion(_region, _cinemaIds);
     }
 
     function addShowTimes(
@@ -411,6 +431,25 @@ contract Cinema is Ownable {
         for (uint256 i; i < cinemaShowTimes.length; ++i) {
             uint256 cinemaShowTime = cinemaShowTimes[i];
             if (_showTime == cinemaShowTime) {
+                result = true;
+            }
+        }
+    }
+
+    function checkStudioShowTime(
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _studio,
+        uint256 _showTime
+    ) public view returns (bool result) {
+        uint256[] memory studioShowTimes = getStudioShowTimes(
+            _region,
+            _cinema,
+            _studio
+        );
+        for (uint256 i; i < studioShowTimes.length; ++i) {
+            uint256 studioShowTime = studioShowTimes[i];
+            if (studioShowTime == _showTime) {
                 result = true;
             }
         }
