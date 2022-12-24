@@ -189,7 +189,7 @@ contract Cinema is Ownable {
         }
     }
 
-    function addMovieToStudio(
+    function addMoviesToStudio(
         uint256[] calldata _movies,
         uint256 _region,
         uint256 _cinema,
@@ -361,7 +361,6 @@ contract Cinema is Ownable {
         external
         onlyCinemaAdmin(_region, _cinema)
         isCinemaExist(_region, _cinema)
-        isStudioShowTimesExist(_region, _cinema, _studio, _showTimes)
     {
         CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
         StudioDetails storage studioDetails = cinemaDetails.studioToDetails[
@@ -488,6 +487,108 @@ contract Cinema is Ownable {
         CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
 
         amount = cinemaDetails.moviesAmount;
+    }
+
+    function getMoviesInRegion(uint256 _region)
+        external
+        view
+        returns (uint256[][] memory moviesInRegion)
+    {
+        uint256[] memory cinemasInRegion = regionInterface.getCinemasInRegion(
+            _region
+        );
+        moviesInRegion = new uint256[][](cinemasInRegion.length);
+        for (uint256 i; i < cinemasInRegion.length; ++i) {
+            uint256 cinema = cinemasInRegion[i];
+            uint256[] memory movies = getCinemaMovies(_region, cinema);
+            moviesInRegion[i] = movies;
+        }
+    }
+
+    function getMovieShowTimesInRegion(uint256 _region, uint256 _movie)
+        external
+        view
+        returns (uint256[] memory cinemas, uint256[][][] memory movieShowTimes)
+    {
+        uint256[] memory cinemasInRegion = regionInterface.getCinemasInRegion(
+            _region
+        );
+        cinemas = new uint256[](cinemasInRegion.length);
+        movieShowTimes = new uint256[][][](cinemasInRegion.length);
+        for (uint256 i; i < cinemasInRegion.length; ++i) {
+            uint256 cinema = cinemasInRegion[i];
+            cinemas[i] = cinema;
+            // movieShowTimes[i] = getMovieShowTimesInCinema(
+            //     _region,
+            //     cinema,
+            //     _movie
+            // );
+        }
+    }
+
+    function getMovieShowTimesInCinema(
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _movie
+    ) public view returns (uint256[][] memory movieShowTimes) {
+        uint256[] memory showTimes = getCinemaShowTimes(_region, _cinema);
+        CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
+        uint256 studioAmount = cinemaDetails.studiosAmount;
+        movieShowTimes = new uint256[][](showTimes.length);
+        for (uint256 i; i < studioAmount; ++i) {
+            uint256[] memory showtimes = getMovieShowTimesInStudio(
+                _region,
+                _cinema,
+                _movie,
+                i + 1
+            );
+            movieShowTimes[i] = showtimes;
+        }
+    }
+
+    function getMovieShowTimesInStudio(
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _movie,
+        uint256 _studio
+    ) public view returns (uint256[] memory movieShowTimes) {
+        uint256 searchIndex;
+        CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
+        StudioDetails storage studioDetails = cinemaDetails.studioToDetails[
+            _studio
+        ];
+        uint256 showtimesAmount = studioDetails.showtimesAmount;
+        for (uint256 i; i < showtimesAmount; ++i) {
+            uint256 showtime = studioDetails.showTimes[i];
+            uint256 movie = studioDetails.showTimeToMovie[showtime];
+            if (movie == _movie) {
+                movieShowTimes = new uint256[](searchIndex + 1);
+                movieShowTimes[searchIndex] = showtime;
+                searchIndex += 1;
+            }
+        }
+    }
+
+    function getMoviesInStudio(
+        uint256 _region,
+        uint256 _cinema,
+        uint256 _studio
+    ) public view returns (uint256[] memory moviesInStudio) {
+        CinemaDetails storage cinemaDetails = cinemaToDetails[_region][_cinema];
+        StudioDetails storage studioDetails = cinemaDetails.studioToDetails[
+            _studio
+        ];
+        uint256[] memory studioShowTimes = getStudioShowTimes(
+            _region,
+            _cinema,
+            _studio
+        );
+        moviesInStudio = new uint256[](studioShowTimes.length);
+        for (uint256 i; i < studioShowTimes.length; ++i) {
+            uint256 showTime = studioShowTimes[i];
+            uint256 movie = studioDetails.showTimeToMovie[showTime];
+            moviesInStudio[i] = movie;
+        }
     }
 
     function getCinemaMovies(uint256 _region, uint256 _cinema)
