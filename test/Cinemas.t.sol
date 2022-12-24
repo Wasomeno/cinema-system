@@ -53,12 +53,11 @@ contract CinemasTest is Test {
         names = new bytes32[](length);
         studioAmounts = new uint256[](length);
         studioCapacities = new uint256[][](length);
-
+        uint256 id = DEFAULT_CINEMA_ID_VALUE;
+        bytes32 name = keccak256(abi.encode(DEFAULT_CINEMA_NAME_VALUE, id));
+        uint256 studioAmount = DEFAULT_CINEMA_STUDIO_AMOUNTS;
+        uint256[] memory studioCapacity = DEFAULT_CINEMA_STUDIO_CAPACITY;
         for (uint256 i; i < 3; ++i) {
-            uint256 id = DEFAULT_CINEMA_ID_VALUE;
-            bytes32 name = keccak256(abi.encode(DEFAULT_CINEMA_NAME_VALUE, id));
-            uint256 studioAmount = DEFAULT_CINEMA_STUDIO_AMOUNTS;
-            uint256[] memory studioCapacity = DEFAULT_CINEMA_STUDIO_CAPACITY;
             ids[i] = id;
             names[i] = name;
             studioAmounts[i] = studioAmount;
@@ -96,6 +95,7 @@ contract CinemasTest is Test {
         titles = new bytes32[](5);
         durations = new uint256[](5);
         for (uint256 i; i < 5; ++i) {
+            ids[i] = DEFAULT_MOVIE_ID;
             titles[i] = keccak256(
                 abi.encode(DEFAULT_MOVIE_TITLE, DEFAULT_MOVIE_ID)
             );
@@ -122,32 +122,19 @@ contract CinemasTest is Test {
             studioAmounts,
             studioCapacities
         );
-        (bytes32 name, uint256 studiosAmount, , , , , ) = cinemaContract
-            .getCinemaDetails(1, 1);
     }
 
     function testAddShowTimes() public {
+        testAddCinema();
         uint256[] memory showTimes = generateShowTimes();
-        vm.prank(0xb0953E331CEB0f60E967CB64fA24e63c74bdC215);
-        vm.mockCall(
-            address(this),
-            abi.encodeWithSelector(
-                cinemaContract.addShowTimes.selector,
-                1,
-                1,
-                showTimes
-            ),
-            abi.encode(false)
-        );
         cinemaContract.addShowTimes(1, 1, showTimes);
         uint256[] memory timesAfter = cinemaContract.getCinemaShowTimes(1, 1);
-        vm.clearMockedCalls();
         console.log(timesAfter[0]);
     }
 
     function testAddShowTimeToStudio() public {
+        testAddShowTimes();
         uint256[] memory showTimes = generateShowTimes();
-        cinemaContract.addShowTimes(1, 1, showTimes);
         cinemaContract.addStudioShowTimes(1, 1, 1, showTimes);
         uint256[] memory showTimesAfter = cinemaContract.getStudioShowTimes(
             1,
@@ -157,8 +144,6 @@ contract CinemasTest is Test {
     }
 
     function testAddMoviesToStudio() public {
-        testAddCinema();
-        testAddShowTimes();
         testAddShowTimeToStudio();
         uint256[] memory showTimes = generateShowTimes();
         (
@@ -171,10 +156,52 @@ contract CinemasTest is Test {
         cinemaContract.addMoviesToStudio(movieIds, 1, 1, 1, showTimes);
     }
 
+    function testGetCinemaDetails() public {
+        testAddMoviesToStudio();
+        (bytes32 name, uint256 studiosAmount, , , , , ) = cinemaContract
+            .getCinemaDetails(1, 1);
+        assertEq(studiosAmount, 3);
+    }
+
+    function testGetMovieShowTimesInCinema() public {
+        testAddMoviesToStudio();
+        uint256[][] memory showtimes = cinemaContract.getMovieShowTimesInCinema(
+            1,
+            1,
+            1
+        );
+    }
+
+    function testGetMovieShowTimesInRegion() public {
+        testAddMoviesToStudio();
+        (
+            uint256[] memory cinemas,
+            uint256[][][] memory showtimes
+        ) = cinemaContract.getMovieShowTimesInRegion(1, 1);
+    }
+
     function testMintTicket() public {
         uint256[] memory seats = new uint256[](2);
         seats[0] = 15;
         seats[1] = 16;
         ticketContract.mintTickets(3, 1, 1, 1, 5, 1, seats);
+    }
+
+    function testDeleteMoviesInStudio() public {
+        testAddMoviesToStudio();
+        uint256[] memory showTimes = generateShowTimes();
+        cinemaContract.deleteMoviesInStudio(1, 1, 1, showTimes);
+    }
+
+    function testDeleteMoviesInCinema() public {
+        testAddMoviesToStudio();
+        (uint256[] memory movieIds, , ) = generateMovies();
+        cinemaContract.deleteMoviesInCinema(1, 1, movieIds);
+    }
+
+    function testDeleteShowTimes() public {
+        testAddMoviesToStudio();
+        uint256[] memory showTimes = generateShowTimes();
+        cinemaContract.deleteShowTime(1, 1, showTimes[0]);
     }
 }
